@@ -152,13 +152,13 @@ def TPS_STN(U, nx, ny, cp, out_size):
 
         p_ = np.empty([nx*ny, 3], dtype='float32')
         i = 0
-        for _ in range(nx):
-          for _ in range(ny):
+        for _ in range(ny):
+          for _ in range(nx):
             p_[i, :] = 1, cx, cy
             i += 1
-            cy += gy
-          cy = -1. + gy/2
-          cx += gx
+            cx += gx
+          cx = -1. + gx/2
+          cy += gy
 
         p_1 = p_.reshape([nx*ny,1,3])
         p_2 = p_.reshape([1, nx*ny, 3])
