@@ -7,13 +7,19 @@ img = np.array(Image.open("original.png"))
 shape = list(img.shape)
 out_size = shape
 
-nx = 4
-ny = 4
+nx = 2
+ny = 2
 iteration = 10000
 
-p = tf.constant(np.ones([1, nx*ny, 2])*0.5, dtype=tf.float32)
+v = np.array([
+  [0.1, 0.1],
+  [0.2, 0.2],
+  [0.2, 0.2],
+  [0.4, 0.4]])
+
+p = tf.constant(v.reshape([1, nx*ny, 2]), dtype=tf.float32)
 t_img = tf.constant(img.reshape([1,shape[0],shape[1],1]), dtype=tf.float32)
-t_img = TPS_STN(t_img, 4, 4, p, out_size)
+t_img = TPS_STN(t_img, nx, ny, p, out_size)
 
 with tf.Session() as sess:
   sess.run(tf.initialize_all_variables())
