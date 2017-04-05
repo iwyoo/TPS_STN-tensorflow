@@ -23,7 +23,7 @@ def TPS_STN(U, nx, ny, cp, out_size):
 
     def _repeat(x, n_repeats):
         rep = tf.transpose(
-            tf.expand_dims(tf.ones(shape=tf.pack([n_repeats, ])), 1), [1, 0])
+            tf.expand_dims(tf.ones(shape=tf.stack([n_repeats, ])), 1), [1, 0])
         rep = tf.cast(rep, 'int32')
         x = tf.matmul(tf.reshape(x, (-1, 1)), rep)
         return tf.reshape(x, [-1])
@@ -71,7 +71,7 @@ def TPS_STN(U, nx, ny, cp, out_size):
 
         # use indices to lookup pixels in the flat image and restore
         # channels dim
-        im_flat = tf.reshape(im, tf.pack([-1, channels]))
+        im_flat = tf.reshape(im, tf.stack([-1, channels]))
         im_flat = tf.cast(im_flat, 'float32')
         Ia = tf.gather(im_flat, idx_a)
         Ib = tf.gather(im_flat, idx_b)
@@ -92,11 +92,11 @@ def TPS_STN(U, nx, ny, cp, out_size):
 
     def _meshgrid(height, width, fp):
         x_t = tf.matmul(
-            tf.ones(shape=tf.pack([height, 1])),
+            tf.ones(shape=tf.stack([height, 1])),
             tf.transpose(tf.expand_dims(tf.linspace(-1.0, 1.0, width), 1), [1, 0]))
         y_t = tf.matmul(
             tf.expand_dims(tf.linspace(-1.0, 1.0, height), 1),
-            tf.ones(shape=tf.pack([1, width])))
+            tf.ones(shape=tf.stack([1, width])))
 
         x_t_flat = tf.reshape(x_t, (1, -1))
         y_t_flat = tf.reshape(y_t, (1, -1))
@@ -109,11 +109,11 @@ def TPS_STN(U, nx, ny, cp, out_size):
         py = tf.expand_dims(fp[:,:,1], 2) # [n, nx*ny, 1]
         d = tf.sqrt(tf.pow(x_t_flat_b - px, 2.) + tf.pow(y_t_flat_b - py, 2.))
         r = tf.pow(d, 2) * tf.log(d + 1e-6) # [n, nx*ny, h*w]
-        x_t_flat_g = tf.tile(x_t_flat_b, tf.pack([num_batch, 1, 1])) # [n, 1, h*w]
-        y_t_flat_g = tf.tile(y_t_flat_b, tf.pack([num_batch, 1, 1])) # [n, 1, h*w]
+        x_t_flat_g = tf.tile(x_t_flat_b, tf.stack([num_batch, 1, 1])) # [n, 1, h*w]
+        y_t_flat_g = tf.tile(y_t_flat_b, tf.stack([num_batch, 1, 1])) # [n, 1, h*w]
         ones = tf.ones_like(x_t_flat_g) # [n, 1, h*w]
 
-        grid = tf.concat(1, [ones, x_t_flat_g, y_t_flat_g, r]) # [n, nx*ny+3, h*w]
+        grid = tf.concat([ones, x_t_flat_g, y_t_flat_g, r], 1) # [n, nx*ny+3, h*w]
         return grid
 
     def _transform(T, fp, input_dim, out_size):
@@ -130,7 +130,7 @@ def TPS_STN(U, nx, ny, cp, out_size):
         grid = _meshgrid(out_height, out_width, fp) # [2, h*w]
 
         # transform A x (1, x_t, y_t, r1, r2, ..., rn) -> (x_s, y_s)
-        T_g = tf.batch_matmul(T, grid) # MARK
+        T_g = tf.matmul(T, grid) # MARK
         x_s = tf.slice(T_g, [0, 0, 0], [-1, 1, -1])
         y_s = tf.slice(T_g, [0, 1, 0], [-1, 1, -1])
         x_s_flat = tf.reshape(x_s, [-1])
@@ -141,7 +141,7 @@ def TPS_STN(U, nx, ny, cp, out_size):
 
         output = tf.reshape(
             input_transformed, 
-            tf.pack([num_batch, out_height, out_width, num_channels]))
+            tf.stack([num_batch, out_height, out_width, num_channels]))
         return output
 
     def _solve_system(cp, nx, ny):
@@ -172,15 +172,15 @@ def TPS_STN(U, nx, ny, cp, out_size):
         num_batch = tf.shape(cp)[0]
         fp = tf.constant(p_[:,1:], dtype='float32') # [nx*ny, 2]
         fp = tf.expand_dims(fp, 0) # [1, nx*ny, 2]
-        fp = tf.tile(fp, tf.pack([num_batch, 1, 1])) # [n, nx*ny, 2]
+        fp = tf.tile(fp, tf.stack([num_batch, 1, 1])) # [n, nx*ny, 2]
 
         W_inv = np.linalg.inv(W)
         W_inv_t = tf.constant(W_inv, dtype='float32') # [nx*ny+3, nx*ny+3]
         W_inv_t = tf.expand_dims(W_inv_t, 0)          # [1, nx*ny+3, nx*ny+3]
-        W_inv_t = tf.tile(W_inv_t, tf.pack([num_batch, 1, 1]))
+        W_inv_t = tf.tile(W_inv_t, tf.stack([num_batch, 1, 1]))
 
         cp_pad = tf.pad(cp+fp, [[0, 0], [0, 3], [0, 0]], "CONSTANT")
-        T = tf.batch_matmul(W_inv_t, cp_pad)
+        T = tf.matmul(W_inv_t, cp_pad)
         T = tf.transpose(T, [0,2,1])
 
         return T, fp
